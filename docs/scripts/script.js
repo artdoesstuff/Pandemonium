@@ -11,15 +11,21 @@ const canvas      = document.getElementById('visualizer');
 const workspace   = document.getElementById('workspace');
 const ctx         = canvas.getContext('2d');
 
-let audioCtx   = null;
-let analyser   = null;
-let gainNode   = null;
-let sourceNode = null;
-let isPlaying  = false;
-let isFocus    = false;
-let animId     = null;
-let hasAudio   = false;
+const MAX_IMAGES = 200;
+const IMG_Z_MAX  = 4;
+const VIZ_Z      = 5;
+
+let audioCtx     = null;
+let analyser     = null;
+let gainNode     = null;
+let sourceNode   = null;
+let isPlaying    = false;
+let isFocus      = false;
+let animId       = null;
+let hasAudio     = false;
 let seekDragging = false;
+let selectedImg  = null;
+let imgZTop      = 1;
 
 const BAR_COUNT = 80;
 const INNER_R   = 220;
@@ -35,9 +41,7 @@ audioUpload.addEventListener('change', e => {
   trackName.textContent = file.name.replace(/\.[^.]+$/, '');
   hasAudio = true;
   document.body.classList.add('has-audio');
-  if (audioPlayer.src && audioPlayer.src.startsWith('blob:')) {
-    URL.revokeObjectURL(audioPlayer.src);
-  }
+  if (audioPlayer.src && audioPlayer.src.startsWith('blob:')) URL.revokeObjectURL(audioPlayer.src);
   audioPlayer.src = URL.createObjectURL(file);
   if (!audioCtx) {
     initAudioContext();
@@ -68,13 +72,8 @@ document.addEventListener('click', () => {
 function togglePlayPause() {
   if (!audioCtx) return;
   if (audioCtx.state === 'suspended') audioCtx.resume();
-  if (isPlaying) {
-    audioPlayer.pause();
-    setPlayState(false);
-  } else {
-    audioPlayer.play();
-    setPlayState(true);
-  }
+  if (isPlaying) { audioPlayer.pause(); setPlayState(false); }
+  else           { audioPlayer.play();  setPlayState(true);  }
 }
 
 function restartTrack() {
@@ -135,6 +134,8 @@ function isNearRing(e) {
 }
 
 workspace.addEventListener('mousedown', e => {
+  if (e.target.classList.contains('workspace-img')) return;
+  selectImage(null);
   if (!hasAudio || !isNearRing(e)) return;
   seekDragging = true;
   seekFromAngle(getAngleFromEvent(e));
@@ -178,7 +179,6 @@ function drawFrame() {
   const CY = H / 2;
 
   ctx.clearRect(0, 0, W, H);
-
   if (!hasAudio) return;
 
   let freqData = new Uint8Array(analyser ? analyser.frequencyBinCount : 1);
@@ -241,8 +241,9 @@ function drawFrame() {
     ctx.restore();
 
     ctx.save();
-    const dotX = CX + Math.cos(endA) * RING_R;
-    const dotY = CY + Math.sin(endA) * RING_R;
+    const endA2 = startA + progress * Math.PI * 2;
+    const dotX  = CX + Math.cos(endA2) * RING_R;
+    const dotY  = CY + Math.sin(endA2) * RING_R;
     ctx.beginPath();
     ctx.arc(dotX, dotY, RING_W * 0.9, 0, Math.PI * 2);
     ctx.fillStyle   = '#f9a8d4';
@@ -305,17 +306,40 @@ function drawFrame() {
   ctx.restore();
 }
 
+function selectImage(img) {
+  if (selectedImg && selectedImg !== img) {
+    selectedImg.classList.remove('selected');
+  }
+  selectedImg = img;
+  if (img) img.classList.add('selected');
+}
+
+function deleteSelectedImage() {
+  if (!selectedImg) return;
+  URL.revokeObjectURL(selectedImg.src);
+  selectedImg.remove();
+  selectedImg = null;
+}
+
 imageUpload.addEventListener('change', e => {
-  Array.from(e.target.files).forEach((file, idx) => {
+  const existing = workspace.querySelectorAll('.workspace-img').length;
+  const files    = Array.from(e.target.files).slice(0, MAX_IMAGES - existing);
+
+  files.forEach((file, idx) => {
     const url = URL.createObjectURL(file);
     const img = document.createElement('img');
     img.src       = url;
     img.className = 'workspace-img';
-    img.style.left   = (60 + idx * 30) + 'px';
-    img.style.top    = (60 + idx * 20) + 'px';
+    img.style.left = (60 + idx * 30) + 'px';
+    img.style.top  = (60 + idx * 20) + 'px';
     img.style.width  = '220px';
     img.style.height = 'auto';
-    img.style.zIndex = '1';
+
+    imgZTop = Math.min(imgZTop + 1, IMG_Z_MAX);
+    img.style.zIndex = imgZTop;
+
+    img.addEventListener('mousedown', () => selectImage(img));
+
     workspace.insertBefore(img, canvas);
     setupInteract(img);
   });
@@ -328,7 +352,7 @@ function setupInteract(el) {
       inertia: true,
       modifiers: [interact.modifiers.restrictRect({ restriction: '#workspace', endOnly: false })],
       listeners: {
-        start() { bringToFront(el); },
+        start() { bringToFront(el); selectImage(el); },
         move(event) {
           const x = (parseFloat(el.getAttribute('data-x')) || 0) + event.dx;
           const y = (parseFloat(el.getAttribute('data-y')) || 0) + event.dy;
@@ -339,9 +363,10 @@ function setupInteract(el) {
       }
     })
     .resizable({
-      edges: { right: true, bottom: true, bottomRight: true },
+      edges: { left: true, right: true, top: true, bottom: true },
       modifiers: [interact.modifiers.restrictSize({ min: { width: 40, height: 40 } })],
       listeners: {
+        start() { selectImage(el); },
         move(event) {
           el.style.width  = event.rect.width  + 'px';
           el.style.height = event.rect.height + 'px';
@@ -355,9 +380,9 @@ function setupInteract(el) {
     });
 }
 
-let zTop = 1;
 function bringToFront(el) {
-  el.style.zIndex = ++zTop;
+  imgZTop = Math.min(imgZTop + 1, IMG_Z_MAX);
+  el.style.zIndex = imgZTop;
 }
 
 document.addEventListener('keydown', e => {
@@ -377,6 +402,10 @@ document.addEventListener('keydown', e => {
     case 'F':
       isFocus = !isFocus;
       document.body.classList.toggle('focus-mode', isFocus);
+      break;
+    case 'Delete':
+    case 'Backspace':
+      deleteSelectedImage();
       break;
   }
 });

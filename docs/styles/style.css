@@ -301,3 +301,9 @@ body.focus-mode #header {
   visibility: hidden;
   transform: translateY(-100%);
 }
+
+body.focus-mode #workspace {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
