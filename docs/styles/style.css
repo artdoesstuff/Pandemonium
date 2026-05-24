@@ -243,12 +243,19 @@ body.has-audio #visualizer {
   min-height: 40px;
   touch-action: none;
   user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: auto;
   border: 1px solid transparent;
   border-radius: 3px;
   transition: border-color .2s;
   box-shadow: 0 8px 32px rgba(0,0,0,.6);
   z-index: 1;
 }
+#workspace.cursor-ring,
+#workspace.cursor-ring * {
+  cursor: pointer !important;
+}
+
 .workspace-img:hover,
 .workspace-img.selected {
   border-color: var(--accent);

@@ -11,7 +11,7 @@ const canvas      = document.getElementById('visualizer');
 const workspace   = document.getElementById('workspace');
 const ctx         = canvas.getContext('2d');
 
-const MAX_IMAGES = 200;
+const MAX_IMAGES = 20;
 const IMG_Z_MAX  = 4;
 const VIZ_Z      = 5;
 
@@ -133,19 +133,35 @@ function isNearRing(e) {
   return Math.abs(Math.hypot(px - cx, py - cy) - RING_R) < 20;
 }
 
-workspace.addEventListener('mousedown', e => {
-  if (e.target.classList.contains('workspace-img')) return;
-  selectImage(null);
-  if (!hasAudio || !isNearRing(e)) return;
-  seekDragging = true;
-  seekFromAngle(getAngleFromEvent(e));
+document.addEventListener('mousedown', e => {
+  const inWorkspace = workspace.contains(e.target);
+  if (inWorkspace && hasAudio && isNearRing(e)) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    seekDragging = true;
+    seekFromAngle(getAngleFromEvent(e));
+    return;
+  }
+  if (inWorkspace && !e.target.classList.contains('workspace-img')) selectImage(null);
+}, true);
+
+document.addEventListener('mousemove', e => {
+  if (seekDragging) {
+    seekFromAngle(getAngleFromEvent(e));
+    return;
+  }
+  if (!workspace.contains(e.target) && e.target !== workspace) {
+    workspace.classList.remove('cursor-ring');
+    return;
+  }
+  if (hasAudio && isNearRing(e)) {
+    workspace.classList.add('cursor-ring');
+  } else {
+    workspace.classList.remove('cursor-ring');
+  }
 });
-workspace.addEventListener('mousemove', e => {
-  if (!seekDragging) return;
-  seekFromAngle(getAngleFromEvent(e));
-});
-workspace.addEventListener('mouseup',    () => { seekDragging = false; });
-workspace.addEventListener('mouseleave', () => { seekDragging = false; });
+
+document.addEventListener('mouseup', () => { seekDragging = false; });
 
 workspace.addEventListener('touchstart', e => {
   if (!hasAudio || !isNearRing(e)) return;
@@ -339,6 +355,8 @@ imageUpload.addEventListener('change', e => {
     img.style.zIndex = imgZTop;
 
     img.addEventListener('mousedown', () => selectImage(img));
+    img.addEventListener('dragstart', e => e.preventDefault());
+    img.setAttribute('draggable', 'false');
 
     workspace.insertBefore(img, canvas);
     setupInteract(img);
@@ -346,13 +364,23 @@ imageUpload.addEventListener('change', e => {
   e.target.value = '';
 });
 
+function isPointerNearRing(pointerEvent) {
+  return hasAudio && isNearRing(pointerEvent);
+}
+
 function setupInteract(el) {
   interact(el)
     .draggable({
       inertia: true,
+      styleCursor: false,
       modifiers: [interact.modifiers.restrictRect({ restriction: '#workspace', endOnly: false })],
       listeners: {
-        start() { bringToFront(el); selectImage(el); },
+        start(event) {
+          const pe = event.pointerEvent ?? event;
+          if (isPointerNearRing(pe)) { event.interaction.stop(); return; }
+          bringToFront(el);
+          selectImage(el);
+        },
         move(event) {
           const x = (parseFloat(el.getAttribute('data-x')) || 0) + event.dx;
           const y = (parseFloat(el.getAttribute('data-y')) || 0) + event.dy;
@@ -364,9 +392,14 @@ function setupInteract(el) {
     })
     .resizable({
       edges: { left: true, right: true, top: true, bottom: true },
+      styleCursor: false,
       modifiers: [interact.modifiers.restrictSize({ min: { width: 40, height: 40 } })],
       listeners: {
-        start() { selectImage(el); },
+        start(event) {
+          const pe = event.pointerEvent ?? event;
+          if (isPointerNearRing(pe)) { event.interaction.stop(); return; }
+          selectImage(el);
+        },
         move(event) {
           el.style.width  = event.rect.width  + 'px';
           el.style.height = event.rect.height + 'px';
@@ -406,6 +439,32 @@ document.addEventListener('keydown', e => {
     case 'Delete':
     case 'Backspace':
       deleteSelectedImage();
+      break;
+    case 'ArrowLeft':
+    case 'a':
+    case 'A':
+      e.preventDefault();
+      if (audioPlayer.duration) audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 5);
+      break;
+    case 'ArrowRight':
+    case 'd':
+    case 'D':
+      e.preventDefault();
+      if (audioPlayer.duration) audioPlayer.currentTime = Math.min(audioPlayer.duration, audioPlayer.currentTime + 5);
+      break;
+    case 'ArrowUp':
+    case 'w':
+    case 'W':
+      e.preventDefault();
+      volSlider.value = Math.min(1, parseFloat(volSlider.value) + 0.05).toFixed(2);
+      if (gainNode) gainNode.gain.value = parseFloat(volSlider.value);
+      break;
+    case 'ArrowDown':
+    case 's':
+    case 'S':
+      e.preventDefault();
+      volSlider.value = Math.max(0, parseFloat(volSlider.value) - 0.05).toFixed(2);
+      if (gainNode) gainNode.gain.value = parseFloat(volSlider.value);
       break;
   }
 });
