@@ -1,19 +1,46 @@
-const audioUpload = document.getElementById('audio-upload');
-const imageUpload = document.getElementById('image-upload');
-const audioPlayer = document.getElementById('audio-player');
-const btnPlay     = document.getElementById('btn-play');
-const btnRestart  = document.getElementById('btn-restart');
-const iconPlay    = document.getElementById('icon-play');
-const iconPause   = document.getElementById('icon-pause');
-const volSlider   = document.getElementById('vol-slider');
-const trackName   = document.getElementById('track-name');
-const canvas      = document.getElementById('visualizer');
-const workspace   = document.getElementById('workspace');
-const ctx         = canvas.getContext('2d');
+const audioUpload    = document.getElementById('audio-upload');
+const imageUpload    = document.getElementById('image-upload');
+const audioPlayer    = document.getElementById('audio-player');
+const btnPlay        = document.getElementById('btn-play');
+const btnRestart     = document.getElementById('btn-restart');
+const btnLoop        = document.getElementById('btn-loop');
+const btnAddText     = document.getElementById('btn-add-text');
+const iconPlay       = document.getElementById('icon-play');
+const iconPause      = document.getElementById('icon-pause');
+const volSlider      = document.getElementById('vol-slider');
+const trackName      = document.getElementById('track-name');
+const accentPicker   = document.getElementById('accent-picker');
+const canvas         = document.getElementById('visualizer');
+const workspace      = document.getElementById('workspace');
+const ctx            = canvas.getContext('2d');
+const itemToolbar    = document.getElementById('item-toolbar');
+const tbImgControls  = document.getElementById('tb-img-controls');
+const tbTextControls = document.getElementById('tb-text-controls');
+const tbFlipH        = document.getElementById('tb-flip-h');
+const tbFlipV        = document.getElementById('tb-flip-v');
+const tbOpacity      = document.getElementById('tb-opacity');
+const tbDelete       = document.getElementById('tb-delete');
+const tbFont         = document.getElementById('tb-font');
+const tbFontSize     = document.getElementById('tb-fontsize');
+const tbBold         = document.getElementById('tb-bold');
+const tbItalic       = document.getElementById('tb-italic');
+const tbTextColor    = document.getElementById('tb-text-color');
+const dropOverlay    = document.getElementById('drop-overlay');
 
 const MAX_IMAGES = 20;
-const IMG_Z_MAX  = 4;
 const VIZ_Z      = 5;
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function getAccent() {
+  return getComputedStyle(document.documentElement)
+    .getPropertyValue('--accent2').trim();
+}
 
 let audioCtx     = null;
 let analyser     = null;
@@ -23,9 +50,32 @@ let isPlaying    = false;
 let isFocus      = false;
 let animId       = null;
 let hasAudio     = false;
-let seekDragging = false;
-let selectedImg  = null;
+let isLooping    = false;
+let selectedItem = null;
 let imgZTop      = 1;
+
+function savePrefs() {
+  localStorage.setItem('pandemonium', JSON.stringify({
+    volume: volSlider.value,
+    loop:   isLooping,
+    accent: accentPicker.value
+  }));
+}
+
+(function loadPrefs() {
+  const saved = JSON.parse(localStorage.getItem('pandemonium') || '{}');
+  if (saved.volume !== undefined) volSlider.value = saved.volume;
+  if (saved.loop) {
+    isLooping = true;
+    audioPlayer.loop = true;
+    btnLoop.classList.add('active');
+  }
+  if (saved.accent) {
+    accentPicker.value = saved.accent;
+    document.documentElement.style.setProperty('--accent2', saved.accent);
+    document.documentElement.style.setProperty('--glow2', hexToRgba(saved.accent, 0.25));
+  }
+})();
 
 const BAR_COUNT = 80;
 const INNER_R   = 220;
@@ -85,7 +135,22 @@ function restartTrack() {
 
 btnPlay.addEventListener('click', togglePlayPause);
 btnRestart.addEventListener('click', restartTrack);
+btnLoop.addEventListener('click', toggleLoop);
 audioPlayer.addEventListener('ended', () => setPlayState(false));
+
+function toggleLoop() {
+  isLooping = !isLooping;
+  audioPlayer.loop = isLooping;
+  btnLoop.classList.toggle('active', isLooping);
+  savePrefs();
+}
+
+accentPicker.addEventListener('input', () => {
+  const hex = accentPicker.value;
+  document.documentElement.style.setProperty('--accent2', hex);
+  document.documentElement.style.setProperty('--glow2', hexToRgba(hex, 0.25));
+  savePrefs();
+});
 
 function setPlayState(playing) {
   isPlaying = playing;
@@ -96,6 +161,7 @@ function setPlayState(playing) {
 
 volSlider.addEventListener('input', () => {
   if (gainNode) gainNode.gain.value = parseFloat(volSlider.value);
+  savePrefs();
 });
 
 function formatTime(s) {
@@ -142,7 +208,12 @@ document.addEventListener('mousedown', e => {
     seekFromAngle(getAngleFromEvent(e));
     return;
   }
-  if (inWorkspace && !e.target.classList.contains('workspace-img')) selectImage(null);
+  if (inWorkspace && selectedItem && selectedItem.classList.contains('editing') && !selectedItem.contains(e.target)) {
+    stopEditing(selectedItem);
+  }
+  if (inWorkspace && !e.target.classList.contains('workspace-img') && !e.target.classList.contains('workspace-text') && !itemToolbar.contains(e.target)) {
+    selectItem(null);
+  }
 }, true);
 
 document.addEventListener('mousemove', e => {
@@ -223,8 +294,8 @@ function drawFrame() {
     ctx.arc(CX, CY, outerR, a1, a2);
     ctx.arc(CX, CY, INNER_R, a2, a1, true);
     ctx.closePath();
-    ctx.fillStyle   = `rgba(244,114,182,${0.4 + (val / 255) * 0.55})`;
-    ctx.shadowColor = 'rgba(244,114,182,0.5)';
+    ctx.fillStyle   = hexToRgba(getAccent(), 0.4 + (val / 255) * 0.55);
+    ctx.shadowColor = hexToRgba(getAccent(), 0.5);
     ctx.shadowBlur  = 6 + (val / 255) * 10;
     ctx.fill();
     ctx.restore();
@@ -248,10 +319,10 @@ function drawFrame() {
     ctx.save();
     ctx.beginPath();
     ctx.arc(CX, CY, RING_R, startA, endA);
-    ctx.strokeStyle = '#f472b6';
+    ctx.strokeStyle = getAccent();
     ctx.lineWidth   = RING_W;
     ctx.lineCap     = 'round';
-    ctx.shadowColor = 'rgba(244,114,182,0.7)';
+    ctx.shadowColor = hexToRgba(getAccent(), 0.7);
     ctx.shadowBlur  = 10;
     ctx.stroke();
     ctx.restore();
@@ -262,8 +333,8 @@ function drawFrame() {
     const dotY  = CY + Math.sin(endA2) * RING_R;
     ctx.beginPath();
     ctx.arc(dotX, dotY, RING_W * 0.9, 0, Math.PI * 2);
-    ctx.fillStyle   = '#f9a8d4';
-    ctx.shadowColor = 'rgba(244,114,182,0.9)';
+    ctx.fillStyle   = getAccent();
+    ctx.shadowColor = hexToRgba(getAccent(), 0.9);
     ctx.shadowBlur  = 14;
     ctx.fill();
     ctx.restore();
@@ -273,8 +344,8 @@ function drawFrame() {
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
   ctx.font         = `600 20px 'Share Tech Mono', monospace`;
-  ctx.fillStyle    = '#f472b6';
-  ctx.shadowColor  = 'rgba(244,114,182,0.6)';
+  ctx.fillStyle    = getAccent();
+  ctx.shadowColor  = hexToRgba(getAccent(), 0.6);
   ctx.shadowBlur   = 10;
   ctx.fillText(formatTime(audioPlayer.currentTime), CX, CY - 10);
   ctx.font         = `300 10px 'Share Tech Mono', monospace`;
@@ -300,11 +371,11 @@ function drawFrame() {
   ctx.restore();
 
   const waveGrad = ctx.createLinearGradient(waveLeft, 0, waveLeft + WAVE_W, 0);
-  waveGrad.addColorStop(0,   'rgba(244,114,182,0.0)');
-  waveGrad.addColorStop(0.2, 'rgba(244,114,182,0.6)');
-  waveGrad.addColorStop(0.5, 'rgba(244,114,182,0.85)');
-  waveGrad.addColorStop(0.8, 'rgba(244,114,182,0.6)');
-  waveGrad.addColorStop(1,   'rgba(244,114,182,0.0)');
+  waveGrad.addColorStop(0,   hexToRgba(getAccent(), 0.0));
+  waveGrad.addColorStop(0.2, hexToRgba(getAccent(), 0.6));
+  waveGrad.addColorStop(0.5, hexToRgba(getAccent(), 0.85));
+  waveGrad.addColorStop(0.8, hexToRgba(getAccent(), 0.6));
+  waveGrad.addColorStop(1,   hexToRgba(getAccent(), 0.0));
 
   ctx.save();
   ctx.beginPath();
@@ -316,48 +387,211 @@ function drawFrame() {
   }
   ctx.strokeStyle = waveGrad;
   ctx.lineWidth   = 1.5;
-  ctx.shadowColor = 'rgba(244,114,182,0.5)';
+  ctx.shadowColor = hexToRgba(getAccent(), 0.5);
   ctx.shadowBlur  = 6;
   ctx.stroke();
   ctx.restore();
 }
 
-function selectImage(img) {
-  if (selectedImg && selectedImg !== img) {
-    selectedImg.classList.remove('selected');
+function selectItem(el) {
+  if (selectedItem && selectedItem !== el) selectedItem.classList.remove('selected');
+  selectedItem = el;
+  if (!el) {
+    itemToolbar.classList.remove('visible');
+    tbImgControls.classList.remove('visible');
+    tbTextControls.classList.remove('visible');
+    return;
   }
-  selectedImg = img;
-  if (img) img.classList.add('selected');
+  el.classList.add('selected');
+  tbOpacity.value = el.style.opacity !== '' ? parseFloat(el.style.opacity) : 1;
+  itemToolbar.classList.add('visible');
+  if (el.classList.contains('workspace-img')) {
+    tbImgControls.classList.add('visible');
+    tbTextControls.classList.remove('visible');
+  } else {
+    tbImgControls.classList.remove('visible');
+    tbTextControls.classList.add('visible');
+    tbFont.value         = el.dataset.font      || 'Share Tech Mono';
+    tbFontSize.value     = el.dataset.fontSize  || '32';
+    tbBold.classList.toggle('on',   el.dataset.bold   === '1');
+    tbItalic.classList.toggle('on', el.dataset.italic === '1');
+    tbTextColor.value    = el.dataset.color     || '#ffffff';
+  }
 }
 
-function deleteSelectedImage() {
-  if (!selectedImg) return;
-  URL.revokeObjectURL(selectedImg.src);
-  selectedImg.remove();
-  selectedImg = null;
+function deleteSelectedItem() {
+  if (!selectedItem) return;
+  if (selectedItem.src && selectedItem.src.startsWith('blob:')) URL.revokeObjectURL(selectedItem.src);
+  selectedItem.remove();
+  selectedItem = null;
+  itemToolbar.classList.remove('visible');
+  tbImgControls.classList.remove('visible');
+  tbTextControls.classList.remove('visible');
 }
+
+tbFlipH.addEventListener('click', () => {
+  if (!selectedItem) return;
+  selectedItem.dataset.flipH = selectedItem.dataset.flipH === '1' ? '0' : '1';
+  applyFlip(selectedItem);
+});
+
+tbFlipV.addEventListener('click', () => {
+  if (!selectedItem) return;
+  selectedItem.dataset.flipV = selectedItem.dataset.flipV === '1' ? '0' : '1';
+  applyFlip(selectedItem);
+});
+
+function applyFlip(el) {
+  const tx = parseFloat(el.getAttribute('data-x')) || 0;
+  const ty = parseFloat(el.getAttribute('data-y')) || 0;
+  const sx = el.dataset.flipH === '1' ? -1 : 1;
+  const sy = el.dataset.flipV === '1' ? -1 : 1;
+  el.style.transform = `translate(${tx}px,${ty}px) scale(${sx},${sy})`;
+}
+
+tbOpacity.addEventListener('input', () => {
+  if (selectedItem) selectedItem.style.opacity = tbOpacity.value;
+});
+
+tbFont.addEventListener('change', () => {
+  if (!selectedItem || !selectedItem.classList.contains('workspace-text')) return;
+  selectedItem.dataset.font = tbFont.value;
+  applyTextStyle(selectedItem);
+});
+
+tbFontSize.addEventListener('input', () => {
+  if (!selectedItem || !selectedItem.classList.contains('workspace-text')) return;
+  selectedItem.dataset.fontSize = tbFontSize.value;
+  applyTextStyle(selectedItem);
+});
+
+tbBold.addEventListener('click', () => {
+  if (!selectedItem || !selectedItem.classList.contains('workspace-text')) return;
+  selectedItem.dataset.bold = selectedItem.dataset.bold === '1' ? '0' : '1';
+  tbBold.classList.toggle('on', selectedItem.dataset.bold === '1');
+  applyTextStyle(selectedItem);
+});
+
+tbItalic.addEventListener('click', () => {
+  if (!selectedItem || !selectedItem.classList.contains('workspace-text')) return;
+  selectedItem.dataset.italic = selectedItem.dataset.italic === '1' ? '0' : '1';
+  tbItalic.classList.toggle('on', selectedItem.dataset.italic === '1');
+  applyTextStyle(selectedItem);
+});
+
+tbTextColor.addEventListener('input', () => {
+  if (!selectedItem || !selectedItem.classList.contains('workspace-text')) return;
+  selectedItem.dataset.color = tbTextColor.value;
+  applyTextStyle(selectedItem);
+});
+
+function applyTextStyle(el) {
+  const font   = el.dataset.font     || 'Share Tech Mono';
+  const size   = el.dataset.fontSize || '32';
+  const bold   = el.dataset.bold     === '1';
+  const italic = el.dataset.italic   === '1';
+  const color  = el.dataset.color    || '#ffffff';
+  el.style.fontFamily  = `'${font}', sans-serif`;
+  el.style.fontSize    = size + 'px';
+  el.style.fontWeight  = bold   ? '700' : '400';
+  el.style.fontStyle   = italic ? 'italic' : 'normal';
+  el.style.color       = color;
+}
+
+tbDelete.addEventListener('click', deleteSelectedItem);
+
+btnAddText.addEventListener('click', () => {
+  const el = document.createElement('div');
+  el.className        = 'workspace-text';
+  el.textContent      = 'Double-click to edit';
+  el.dataset.font     = 'Share Tech Mono';
+  el.dataset.fontSize = '32';
+  el.dataset.bold     = '0';
+  el.dataset.italic   = '0';
+  el.dataset.color    = '#ffffff';
+  el.style.left       = '120px';
+  el.style.top        = '120px';
+  imgZTop++;
+  el.style.zIndex     = imgZTop;
+  applyTextStyle(el);
+
+  el.addEventListener('mousedown', ev => {
+    if (el.classList.contains('editing')) ev.stopPropagation();
+    else selectItem(el);
+  });
+
+  el.addEventListener('dblclick', ev => {
+    ev.stopPropagation();
+    startEditing(el);
+  });
+
+  workspace.insertBefore(el, canvas);
+  setupInteract(el);
+  selectItem(el);
+});
+
+function startEditing(el) {
+  el.classList.add('editing');
+  el.contentEditable = 'true';
+  el.focus();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  interact(el).draggable({ enabled: false });
+}
+
+function stopEditing(el) {
+  el.classList.remove('editing');
+  el.contentEditable = 'false';
+  interact(el).draggable({ enabled: true });
+  if (el.textContent.trim() === '') el.textContent = 'Double-click to edit';
+}
+
+let dragCounter = 0;
+
+workspace.addEventListener('dragenter', e => {
+  if (!e.dataTransfer.types.includes('Files')) return;
+  dragCounter++;
+  dropOverlay.classList.add('active');
+});
+workspace.addEventListener('dragleave', () => {
+  dragCounter--;
+  if (dragCounter <= 0) { dragCounter = 0; dropOverlay.classList.remove('active'); }
+});
+workspace.addEventListener('dragover', e => { e.preventDefault(); });
+workspace.addEventListener('drop', e => {
+  e.preventDefault();
+  dragCounter = 0;
+  dropOverlay.classList.remove('active');
+  const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('audio/'));
+  if (!file) return;
+  trackName.textContent = file.name.replace(/\.[^.]+$/, '');
+  hasAudio = true;
+  document.body.classList.add('has-audio');
+  if (audioPlayer.src && audioPlayer.src.startsWith('blob:')) URL.revokeObjectURL(audioPlayer.src);
+  audioPlayer.src = URL.createObjectURL(file);
+  if (!audioCtx) { initAudioContext(); } else { if (audioCtx.state === 'suspended') audioCtx.resume(); }
+  audioPlayer.play().then(() => setPlayState(true)).catch(() => {});
+});
 
 imageUpload.addEventListener('change', e => {
   const existing = workspace.querySelectorAll('.workspace-img').length;
   const files    = Array.from(e.target.files).slice(0, MAX_IMAGES - existing);
-
   files.forEach((file, idx) => {
     const url = URL.createObjectURL(file);
     const img = document.createElement('img');
-    img.src       = url;
-    img.className = 'workspace-img';
-    img.style.left = (60 + idx * 30) + 'px';
-    img.style.top  = (60 + idx * 20) + 'px';
-    img.style.width  = '220px';
-    img.style.height = 'auto';
-
-    imgZTop = Math.min(imgZTop + 1, IMG_Z_MAX);
+    img.src         = url;
+    img.className   = 'workspace-img';
+    img.style.left  = (60 + idx * 30) + 'px';
+    img.style.top   = (60 + idx * 20) + 'px';
+    img.style.width = '220px';
+    imgZTop++;
     img.style.zIndex = imgZTop;
-
-    img.addEventListener('mousedown', () => selectImage(img));
-    img.addEventListener('dragstart', e => e.preventDefault());
+    img.addEventListener('mousedown', () => selectItem(img));
+    img.addEventListener('dragstart', ev => ev.preventDefault());
     img.setAttribute('draggable', 'false');
-
     workspace.insertBefore(img, canvas);
     setupInteract(img);
   });
@@ -369,57 +603,69 @@ function isPointerNearRing(pointerEvent) {
 }
 
 function setupInteract(el) {
-  interact(el)
+  const isText = el.classList.contains('workspace-text');
+  const interactable = interact(el)
     .draggable({
       inertia: true,
       styleCursor: false,
       modifiers: [interact.modifiers.restrictRect({ restriction: '#workspace', endOnly: false })],
       listeners: {
         start(event) {
+          if (el.classList.contains('editing')) { event.interaction.stop(); return; }
           const pe = event.pointerEvent ?? event;
           if (isPointerNearRing(pe)) { event.interaction.stop(); return; }
           bringToFront(el);
-          selectImage(el);
+          selectItem(el);
         },
         move(event) {
           const x = (parseFloat(el.getAttribute('data-x')) || 0) + event.dx;
           const y = (parseFloat(el.getAttribute('data-y')) || 0) + event.dy;
-          el.style.transform = `translate(${x}px, ${y}px)`;
           el.setAttribute('data-x', x);
           el.setAttribute('data-y', y);
+          applyFlip(el);
         }
       }
-    })
-    .resizable({
+    });
+
+  // Images get manual resize handles; text elements auto-size to their content
+  if (!isText) {
+    interactable.resizable({
       edges: { left: true, right: true, top: true, bottom: true },
       styleCursor: false,
       modifiers: [interact.modifiers.restrictSize({ min: { width: 40, height: 40 } })],
       listeners: {
         start(event) {
+          if (el.classList.contains('editing')) { event.interaction.stop(); return; }
           const pe = event.pointerEvent ?? event;
           if (isPointerNearRing(pe)) { event.interaction.stop(); return; }
-          selectImage(el);
+          selectItem(el);
         },
         move(event) {
           el.style.width  = event.rect.width  + 'px';
           el.style.height = event.rect.height + 'px';
           const x = (parseFloat(el.getAttribute('data-x')) || 0) + event.deltaRect.left;
           const y = (parseFloat(el.getAttribute('data-y')) || 0) + event.deltaRect.top;
-          el.style.transform = `translate(${x}px, ${y}px)`;
           el.setAttribute('data-x', x);
           el.setAttribute('data-y', y);
+          applyFlip(el);
         }
       }
     });
+  }
 }
 
 function bringToFront(el) {
-  imgZTop = Math.min(imgZTop + 1, IMG_Z_MAX);
+  imgZTop++;
   el.style.zIndex = imgZTop;
 }
 
 document.addEventListener('keydown', e => {
   const tag = e.target.tagName;
+  const isEditing = selectedItem && selectedItem.classList.contains('editing');
+  if (isEditing) {
+    if (e.key === 'Escape') { e.preventDefault(); stopEditing(selectedItem); }
+    return;
+  }
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   switch (e.key) {
     case ' ':
@@ -436,9 +682,13 @@ document.addEventListener('keydown', e => {
       isFocus = !isFocus;
       document.body.classList.toggle('focus-mode', isFocus);
       break;
+    case 'l':
+    case 'L':
+      toggleLoop();
+      break;
     case 'Delete':
     case 'Backspace':
-      deleteSelectedImage();
+      deleteSelectedItem();
       break;
     case 'ArrowLeft':
     case 'a':
