@@ -68,9 +68,9 @@
           <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.87"/>
         </svg>
       </button>
-      <button class="ctrl-btn" id="btn-loop" title="Toggle Loop [L]">
+      <button class="ctrl-btn disabled" id="btn-prev" title="Previous track">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-          <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+          <polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/>
         </svg>
       </button>
       <button class="ctrl-btn" id="btn-play" title="Play / Pause [Space]">
@@ -79,6 +79,16 @@
         </svg>
         <svg id="icon-pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:none">
           <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+        </svg>
+      </button>
+      <button class="ctrl-btn disabled" id="btn-next" title="Next track">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/>
+        </svg>
+      </button>
+      <button class="ctrl-btn" id="btn-loop" title="Toggle Loop [L]">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
         </svg>
       </button>
     </div>
@@ -92,6 +102,14 @@
       </svg>
       <input type="range" id="vol-slider" min="0" max="1" step="0.01" value="0.8" />
     </div>
+
+    <button class="upload-btn" id="btn-queue" title="Toggle queue panel">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+        <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+      </svg>
+      Queue
+    </button>
 
     <div id="colour-wrap">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -107,6 +125,7 @@
       <kbd>Space</kbd> play &nbsp;
       <kbd>R</kbd> restart &nbsp;
       <kbd>L</kbd> loop &nbsp;
+      <kbd>Q</kbd> queue &nbsp;
       <kbd>←/→</kbd> seek &nbsp;
       <kbd>↑/↓</kbd> volume &nbsp;
       <kbd>F</kbd> focus
@@ -191,6 +210,17 @@
       </button>
     </div>
 
+    <div id="queue-panel">
+      <div id="queue-header">
+        <span>Queue</span>
+        <label class="queue-add-btn" title="Add tracks to queue">
+          + Add
+          <input type="file" id="audio-upload-queue" accept="audio/*" multiple />
+        </label>
+      </div>
+      <ul id="queue-list"></ul>
+    </div>
+
     <div id="drop-overlay">
       <div id="drop-msg">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -204,6 +234,7 @@
 </div>
 
 <audio id="audio-player" preload="auto"></audio>
+<script src="scripts/db.js"></script>
 <script src="scripts/state.js"></script>
 <script src="scripts/audio.js"></script>
 <script src="scripts/visualizer.js"></script>

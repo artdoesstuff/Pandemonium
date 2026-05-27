@@ -4,7 +4,10 @@ const audioPlayer    = document.getElementById('audio-player');
 const btnPlay        = document.getElementById('btn-play');
 const btnRestart     = document.getElementById('btn-restart');
 const btnLoop        = document.getElementById('btn-loop');
+const btnPrev        = document.getElementById('btn-prev');
+const btnNext        = document.getElementById('btn-next');
 const btnAddText     = document.getElementById('btn-add-text');
+const btnQueue       = document.getElementById('btn-queue');
 const iconPlay       = document.getElementById('icon-play');
 const iconPause      = document.getElementById('icon-pause');
 const volSlider      = document.getElementById('vol-slider');
@@ -26,8 +29,10 @@ const tbBold         = document.getElementById('tb-bold');
 const tbItalic       = document.getElementById('tb-italic');
 const tbTextColor    = document.getElementById('tb-text-color');
 const dropOverlay    = document.getElementById('drop-overlay');
+const queuePanel     = document.getElementById('queue-panel');
+const queueList      = document.getElementById('queue-list');
 
-const MAX_IMAGES = 20;
+const MAX_IMAGES = 200;
 const VIZ_Z      = 5;
 
 const BAR_COUNT = 80;
@@ -48,8 +53,12 @@ let animId       = null;
 let hasAudio     = false;
 let isLooping    = false;
 let selectedItem = null;
-let imgZTop      = 1;
+let imgZTop      = 10;
+let imgImgZ      = 1;
 let seekDragging = false;
+
+let queue        = [];
+let queueIndex   = -1;
 
 function hexToRgba(hex, alpha) {
   const r = parseInt(hex.slice(1, 3), 16);
