@@ -2,6 +2,8 @@ function savePrefs() {
   localStorage.setItem('pandemonium', JSON.stringify({
     volume:     volSlider.value,
     loop:       isLooping,
+    shuffle:    isShuffling,
+    speed:      audioPlayer.playbackRate,
     accent:     accentPicker.value,
     queueIndex: queueIndex
   }));
@@ -82,6 +84,14 @@ async function loadSavedQueue() {
     audioPlayer.loop = true;
     btnLoop.classList.add('active');
   }
+  if (saved.shuffle) {
+    isShuffling = true;
+    btnShuffle.classList.add('active');
+  }
+  if (saved.speed) {
+    audioPlayer.playbackRate = parseFloat(saved.speed);
+    spdSelect.value = saved.speed;
+  }
   if (saved.accent) {
     accentPicker.value = saved.accent;
     document.documentElement.style.setProperty('--accent2', saved.accent);
@@ -135,23 +145,46 @@ function toggleLoop() {
   savePrefs();
 }
 
+function toggleShuffle() {
+  isShuffling = !isShuffling;
+  if (!isShuffling) shuffleHistory = [];
+  btnShuffle.classList.toggle('active', isShuffling);
+  savePrefs();
+}
+
+function speedSelectChange() {
+  audioPlayer.playbackRate = parseFloat(spdSelect.value);
+  savePrefs();
+}
+
 btnPlay.addEventListener('click', togglePlayPause);
 btnRestart.addEventListener('click', restartTrack);
 btnLoop.addEventListener('click', toggleLoop);
+btnShuffle.addEventListener('click', toggleShuffle);
+spdSelect.addEventListener('change', speedSelectChange);
 
 audioPlayer.addEventListener('ended', () => {
   if (isLooping) return;
-  if (queueIndex < queue.length - 1) {
+  if (queue.length <= 1) { setPlayState(false); return; }
+  if (isShuffling) {
+    let next;
+    do { next = Math.floor(Math.random() * queue.length); }
+    while (next === queueIndex && queue.length > 1);
+    shuffleHistory.push(queueIndex);
+    loadQueueTrack(next, true);
+  } else if (queueIndex < queue.length - 1) {
     loadQueueTrack(queueIndex + 1, true);
-  } else if (queue.length > 1) {
-    loadQueueTrack(0, true);
   } else {
-    setPlayState(false);
+    loadQueueTrack(0, true);
   }
 });
 
 btnPrev.addEventListener('click', () => {
-  if (queueIndex > 0) loadQueueTrack(queueIndex - 1, true);
+  if (isShuffling && shuffleHistory.length) {
+    loadQueueTrack(shuffleHistory.pop(), true);
+  } else if (queueIndex > 0) {
+    loadQueueTrack(queueIndex - 1, true);
+  }
 });
 
 btnNext.addEventListener('click', () => {
@@ -194,6 +227,7 @@ function loadQueueTrack(index, autoPlay) {
   document.body.classList.add('has-audio');
   if (audioPlayer.src && audioPlayer.src.startsWith('blob:')) URL.revokeObjectURL(audioPlayer.src);
   audioPlayer.src = URL.createObjectURL(track.blob);
+  audioPlayer.playbackRate = parseFloat(spdSelect.value);
 
   if (!audioCtx) {
     initAudioContext();

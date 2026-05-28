@@ -163,6 +163,31 @@ body::before {
 }
 #vol-wrap svg { flex-shrink: 0; }
 
+#spd-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+}
+#spd-wrap svg { flex-shrink: 0; }
+
+#spd-select {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 6px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--trans);
+}
+#spd-select:hover, #spd-select:focus { border-color: var(--accent); }
+
 #vol-slider {
   -webkit-appearance: none;
   appearance: none;

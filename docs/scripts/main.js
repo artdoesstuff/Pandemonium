@@ -40,6 +40,12 @@ document.addEventListener('keydown', e => {
       volSlider.value = Math.max(0, parseFloat(volSlider.value) - 0.05).toFixed(2);
       if (gainNode) gainNode.gain.value = parseFloat(volSlider.value);
       break;
+    case 'e': case 'E':
+      isShuffling = !isShuffling;
+      if (!isShuffling) shuffleHistory = [];
+      btnShuffle.classList.toggle('active', isShuffling);
+      savePrefs();
+      break;
   }
 });
 

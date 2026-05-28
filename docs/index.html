@@ -91,6 +91,11 @@
           <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
         </svg>
       </button>
+      <button class="ctrl-btn" id="btn-shuffle" title="Toggle Shuffle [E]">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><line x1="21" y1="20" x2="4" y2="3"/><polyline points="21 16 21 21 16 21"/>
+        </svg>
+      </button>
     </div>
 
     <div class="sep"></div>
@@ -101,6 +106,20 @@
         <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
       </svg>
       <input type="range" id="vol-slider" min="0" max="1" step="0.01" value="0.8" />
+    </div>
+
+    <div id="spd-wrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+      </svg>
+      <select id="spd-select">
+        <option value="0.5">0.5x</option>
+        <option value="0.75">0.75x</option>
+        <option value="1" selected>1x</option>
+        <option value="1.25">1.25x</option>
+        <option value="1.5">1.5x</option>
+        <option value="2">2x</option>
+      </select>
     </div>
 
     <button class="upload-btn" id="btn-queue" title="Toggle queue panel">
@@ -120,7 +139,7 @@
       <label for="accent-picker" title="Change accent colour">Colour</label>
       <input type="color" id="accent-picker" value="#f472b6" />
     </div>
-
+    <!--  
     <span id="focus-hint">
       <kbd>Space</kbd> play &nbsp;
       <kbd>R</kbd> restart &nbsp;
@@ -128,8 +147,10 @@
       <kbd>Q</kbd> queue &nbsp;
       <kbd>←/→</kbd> seek &nbsp;
       <kbd>↑/↓</kbd> volume &nbsp;
+      <kbd>E</kbd> shuffle &nbsp;
       <kbd>F</kbd> focus
     </span>
+    -->
   </header>
 
   <div id="workspace">
@@ -183,7 +204,7 @@
           <option value="Permanent Marker">Permanent Marker</option>
           <option value="Cinzel Decorative">Cinzel Decorative</option>
         </select>
-        <input type="number" id="tb-fontsize" value="32" min="8" max="200" title="Font size" />
+        <input type="number" id="tb-fontsize" value="32" min="8" max="172" title="Font size" />
         <button class="tb-btn tb-toggle" id="tb-bold" title="Bold">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/>

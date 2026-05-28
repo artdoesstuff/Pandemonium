@@ -4,6 +4,8 @@ const audioPlayer    = document.getElementById('audio-player');
 const btnPlay        = document.getElementById('btn-play');
 const btnRestart     = document.getElementById('btn-restart');
 const btnLoop        = document.getElementById('btn-loop');
+const btnShuffle     = document.getElementById('btn-shuffle');
+const spdSelect      = document.getElementById('spd-select');
 const btnPrev        = document.getElementById('btn-prev');
 const btnNext        = document.getElementById('btn-next');
 const btnAddText     = document.getElementById('btn-add-text');
@@ -32,7 +34,7 @@ const dropOverlay    = document.getElementById('drop-overlay');
 const queuePanel     = document.getElementById('queue-panel');
 const queueList      = document.getElementById('queue-list');
 
-const MAX_IMAGES = 200;
+const MAX_IMAGES = 50;
 const VIZ_Z      = 5;
 
 const BAR_COUNT = 80;
@@ -59,6 +61,9 @@ let seekDragging = false;
 
 let queue        = [];
 let queueIndex   = -1;
+
+let isShuffling    = false;
+let shuffleHistory = [];
 
 function hexToRgba(hex, alpha) {
   const r = parseInt(hex.slice(1, 3), 16);

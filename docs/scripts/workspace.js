@@ -293,7 +293,9 @@ tbFont.addEventListener('change', () => {
 
 tbFontSize.addEventListener('input', () => {
   if (!selectedItem || !selectedItem.classList.contains('workspace-text')) return;
-  selectedItem.dataset.fontSize = tbFontSize.value;
+  const clamped = Math.min(172, Math.max(8, parseInt(tbFontSize.value) || 8));
+  tbFontSize.value = clamped;
+  selectedItem.dataset.fontSize = clamped;
   applyTextStyle(selectedItem);
   saveWorkspaceMeta();
 });
